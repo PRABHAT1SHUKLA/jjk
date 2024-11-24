@@ -36,8 +36,8 @@ const signinBody = z.object({
   password: z.string().min(8, 'Password length should be minimum of 8')
 })
 
-const authenticateToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  const token = req.headers.authToken;
+const authenticateToken = async (req: Request, res: Response, next: any): Promise<void> => {
+  const token = req.headers['authorization']?.split(' ')[1];
  
 
   if (!token) {
@@ -45,13 +45,14 @@ const authenticateToken = async (req: Request, res: Response, next: NextFunction
     return; // Important: Ensure you return after sending a response
   }
 
-  const stringifiedToken = JSON.stringify(token)
+
   
 
 
   try {
-    const username  = jwt.verify(stringifiedToken, JWT_SECRET);
-    req.body.username = username; // Attach decoded user info to the request object
+    const decoded = jwt.verify(token, JWT_SECRET) as { username: string };
+    req.body.us = decoded;
+   // Attach decoded user info to the request object
     next(); // Pass control to the next middleware
   } catch (err) {
     res.status(403).json({ message: "Invalid token." });
@@ -160,7 +161,26 @@ app.post('/signin' , async(req:Request , res:Response)=>{
   }
 })
 
-app.get('/me' , authenticateToken , async(req, res)=>{
+app.post('/me' , authenticateToken , async(req:Request, res:Response)=>{
+
+  const username = req.body.us.username
+
+  const userRequired = await db.user.findFirst({
+    where:{
+      username:username
+    }
+  })
+
+  if(!userRequired){
+   res.status(401).send("User not found")
+  }
+
+  res.status(200).json({
+    username:userRequired?.username ,
+    password:userRequired?.password,
+    signupTime: userRequired?.createdAt
+  })
+
 
 })
 
