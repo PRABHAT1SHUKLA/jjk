@@ -2,12 +2,16 @@ import express, { Request, Response } from "express";
 import jwt from "jsonwebtoken"
 import z from "zod"
 import bcrypt from 'bcrypt'
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client"
+const cors = require("cors")
 
-const prisma = new PrismaClient()
+const db = new PrismaClient()
 
 
 const app = express()
+
+
+app.use(cors())
 
 app.use(express.json())
 
@@ -23,7 +27,8 @@ const users: User[] = []
 
 const signupBody = z.object({
   username: z.string().min(1, 'Name is required'),
-  password: z.string().min(8, 'Password length should be minimum of 8')
+  password: z.string().min(8, 'Password length should be minimum of 8'),
+
 })
 
 const signinBody = z.object({
@@ -37,7 +42,7 @@ app.post('/signup', async (req: Request, res: Response) => {
     const body = req.body
     const result = signupBody.parse(body)
 
-    const { username, password , email} = result
+    const { username, password } = result
 
     let foundUser;
 
@@ -49,6 +54,15 @@ app.post('/signup', async (req: Request, res: Response) => {
 
 
     const hashedPassword = await bcrypt.hash(password, 10)
+
+   const user = await db.user.create({
+      data:{
+        username:username,
+        password:hashedPassword
+      },
+    })
+
+    console.log(user)
 
     users.push({
       username: username,
@@ -79,11 +93,19 @@ app.post('/signin' , async(req:Request , res:Response)=>{
     const result = signinBody.parse(body)
     const { username , password } = result
 
-    const foundUser = users.find((user)=>user.username == username )
+    const foundUser = await db.user.findFirst({
+      where:{
+        username:username
+      }
+    })
 
     if(!foundUser){
       res.status(400).send({message: 'Invalid username '})
     }
+
+  
+
+    
 
     const isPasswordValid =  await bcrypt.compare( password ,foundUser!.password)
 
