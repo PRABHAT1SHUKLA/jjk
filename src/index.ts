@@ -36,6 +36,29 @@ const signinBody = z.object({
   password: z.string().min(8, 'Password length should be minimum of 8')
 })
 
+const authenticateToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const token = req.headers.authToken;
+ 
+
+  if (!token) {
+    res.status(401).json({ message: "Access Denied. No token provided." });
+    return; // Important: Ensure you return after sending a response
+  }
+
+  const stringifiedToken = JSON.stringify(token)
+  
+
+
+  try {
+    const username  = jwt.verify(stringifiedToken, JWT_SECRET);
+    req.body.username = username; // Attach decoded user info to the request object
+    next(); // Pass control to the next middleware
+  } catch (err) {
+    res.status(403).json({ message: "Invalid token." });
+  }
+};
+
+
 app.post('/signup', async (req: Request, res: Response) => {
 
   try {
@@ -46,7 +69,13 @@ app.post('/signup', async (req: Request, res: Response) => {
 
     let foundUser;
 
-    foundUser = users.find((user) => (user.username == username))
+    console.log("request came here in signup")
+
+     foundUser = await db.user.findFirst({
+      where:{
+        username:username
+      }
+    })
 
     if (foundUser) {
       res.status(400).send({ message: 'User already exists' })
@@ -129,6 +158,10 @@ app.post('/signin' , async(req:Request , res:Response)=>{
       res.status(500).send({ message: 'Internal server error' });
     }
   }
+})
+
+app.get('/me' , authenticateToken , async(req, res)=>{
+
 })
 
 app.listen(PORT, () => {
